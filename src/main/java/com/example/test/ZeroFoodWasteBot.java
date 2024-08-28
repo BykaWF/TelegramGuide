@@ -1,8 +1,17 @@
 package com.example.test;
 
 import com.vdurmont.emoji.EmojiParser;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
@@ -15,14 +24,17 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.logging.Logger;
 
 public class ZeroFoodWasteBot implements LongPollingSingleThreadUpdateConsumer {
+
     private final Logger logger = Logger.getLogger(ZeroFoodWasteBot.class.getName());
     private final TelegramClient telegramClient;
+
     public ZeroFoodWasteBot(String botToken) {
         this.telegramClient = new OkHttpTelegramClient(botToken);
     }
@@ -31,11 +43,15 @@ public class ZeroFoodWasteBot implements LongPollingSingleThreadUpdateConsumer {
     public void consume(Update update) {
         if (update.hasMessage()) {
             long chat_id = update.getMessage().getChatId();
-            logger.info("We speak with " + update.getMessage().getChat().getFirstName() +" at " + LocalTime.now());
+            logger.info("We speak with " + update.getMessage().getChat().getFirstName() + " at " + LocalTime.now());
             if (update.getMessage().hasText()) {
                 handleTextMessage(update.getMessage().getText(), chat_id);
             } else if (update.getMessage().hasPhoto()) {
-                handlePhotoMessage(update.getMessage().getPhoto(), chat_id);
+                try {
+                    handlePhotoMessage(update.getMessage().getPhoto(), chat_id);
+                } catch (IOException | TelegramApiException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
     }
@@ -55,7 +71,7 @@ public class ZeroFoodWasteBot implements LongPollingSingleThreadUpdateConsumer {
                 logger.info("We show keyboard");
                 break;
             case "/hide":
-                hideMarkup(chatId,"Keyboard hidden");
+                hideMarkup(chatId, "Keyboard hidden");
                 logger.info("Keyboard hidden");
                 break;
             case "Greeting":
@@ -68,7 +84,7 @@ public class ZeroFoodWasteBot implements LongPollingSingleThreadUpdateConsumer {
                 sendTextMessage(chatId, "Upload your photo ...");
                 break;
             default:
-                sendTextMessage(chatId,"Unknown command: " + messageText);
+                sendTextMessage(chatId, "Unknown command: " + messageText);
                 logger.info("Unknown command: " + messageText);
                 break;
         }
@@ -102,24 +118,49 @@ public class ZeroFoodWasteBot implements LongPollingSingleThreadUpdateConsumer {
         executeMessage(message);
     }
 
-    private void handlePhotoMessage(List<PhotoSize> photos, long chatId) {
+    private void handlePhotoMessage(List<PhotoSize> photos, long chatId) throws IOException, TelegramApiException {
         String fileId = photos.stream()
                 .max(Comparator.comparingInt(PhotoSize::getFileSize))
                 .map(PhotoSize::getFileId)
                 .orElse("");
 
-        int width = photos.stream()
-                .max(Comparator.comparingInt(PhotoSize::getWidth))
-                .map(PhotoSize::getWidth)
-                .orElse(0);
 
-        int height = photos.stream()
-                .max(Comparator.comparingInt(PhotoSize::getHeight))
-                .map(PhotoSize::getHeight)
-                .orElse(0);
 
-        String caption = String.format("file_id: %s\nwidth: %d\nheight: %d", fileId, width, height);
-        sendPhotoMessage(chatId, fileId, caption);
+        GetFile getFile = new GetFile(fileId);
+        String filePath = telegramClient.execute(getFile).getFilePath();
+        File img = telegramClient.downloadFile(filePath);
+        buildPostRequest(img,chatId,fileId);
+
+    }
+
+    private void buildPostRequest(File img, long chatId, String fileId) throws IOException {
+        HttpPost postRequest = new HttpPost("http://127.0.0.1:5000/process-image");
+
+        MultipartEntityBuilder entityBuilder = MultipartEntityBuilder.create()
+                .addBinaryBody("image",
+                        img,
+                        ContentType.APPLICATION_OCTET_STREAM,
+                        fileId
+                );
+        HttpEntity entity = entityBuilder.build();
+
+        postRequest.setEntity(entity);
+
+        makeRequest(postRequest,chatId);
+
+    }
+
+    private void makeRequest(HttpPost postRequest, long chatId) throws IOException {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault();
+             CloseableHttpResponse response = httpClient.execute(postRequest)) {
+            logger.info(String.valueOf(response.getStatusLine().getStatusCode()));
+            HttpEntity responseEntity = response.getEntity();
+            if(responseEntity != null){
+                String responseBody = EntityUtils.toString(responseEntity);
+                sendTextMessage(chatId,responseBody);
+            }
+            EntityUtils.consume(responseEntity);
+        }
     }
 
     private void sendTextMessage(long chatId, String text) {
