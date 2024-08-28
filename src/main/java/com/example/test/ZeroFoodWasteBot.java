@@ -1,0 +1,167 @@
+package com.example.test;
+
+import com.vdurmont.emoji.EmojiParser;
+import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
+import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
+import org.telegram.telegrambots.meta.api.objects.PhotoSize;
+import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
+
+import java.io.File;
+import java.time.LocalTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.logging.Logger;
+
+public class ZeroFoodWasteBot implements LongPollingSingleThreadUpdateConsumer {
+    private final Logger logger = Logger.getLogger(ZeroFoodWasteBot.class.getName());
+    private final TelegramClient telegramClient;
+    public ZeroFoodWasteBot(String botToken) {
+        this.telegramClient = new OkHttpTelegramClient(botToken);
+    }
+
+    @Override
+    public void consume(Update update) {
+        if (update.hasMessage()) {
+            long chat_id = update.getMessage().getChatId();
+            logger.info("We speak with " + update.getMessage().getChat().getFirstName() +" at " + LocalTime.now());
+            if (update.getMessage().hasText()) {
+                handleTextMessage(update.getMessage().getText(), chat_id);
+            } else if (update.getMessage().hasPhoto()) {
+                handlePhotoMessage(update.getMessage().getPhoto(), chat_id);
+            }
+        }
+    }
+
+    private void handleTextMessage(String messageText, long chatId) {
+        switch (messageText) {
+            case "/start":
+                sendTextMessage(chatId, "Welcome!");
+                logger.info("We answered on command /start");
+                break;
+            case "/pic":
+                sendPhotoMessage(chatId, "src/main/resources/photos/close_face_flixbus.jpg");
+                logger.info("We sent a picture on /pic");
+                break;
+            case "/markup":
+                sendMarkup(chatId);
+                logger.info("We show keyboard");
+                break;
+            case "/hide":
+                hideMarkup(chatId,"Keyboard hidden");
+                logger.info("Keyboard hidden");
+                break;
+            case "Greeting":
+                sendTextMessage(chatId, EmojiParser.parseToUnicode("Hello, how are you ? :smile:"));
+                break;
+            case "Picture":
+                sendPhotoMessage(chatId, "src/main/resources/photos/close_face_flixbus.jpg");
+                break;
+            case "New Food":
+                sendTextMessage(chatId, "Upload your photo ...");
+                break;
+            default:
+                sendTextMessage(chatId,"Unknown command: " + messageText);
+                logger.info("Unknown command: " + messageText);
+                break;
+        }
+
+        // Echo the received message
+        sendTextMessage(chatId, messageText);
+    }
+
+    private void hideMarkup(long chatId, String text) {
+        SendMessage sendMessage = SendMessage
+                .builder()
+                .chatId(chatId)
+                .text(text)
+                .replyMarkup(new ReplyKeyboardRemove(Boolean.TRUE))
+                .build();
+        executeMessage(sendMessage);
+    }
+
+    private void sendMarkup(long chatId) {
+        SendMessage message = SendMessage
+                .builder()
+                .text("Here is your keyboard")
+                .chatId(chatId)
+                .build();
+        message.setReplyMarkup(ReplyKeyboardMarkup
+                .builder()
+                .keyboardRow(new KeyboardRow("Greeting", "Picture", "New Food"))
+                .build()
+        );
+
+        executeMessage(message);
+    }
+
+    private void handlePhotoMessage(List<PhotoSize> photos, long chatId) {
+        String fileId = photos.stream()
+                .max(Comparator.comparingInt(PhotoSize::getFileSize))
+                .map(PhotoSize::getFileId)
+                .orElse("");
+
+        int width = photos.stream()
+                .max(Comparator.comparingInt(PhotoSize::getWidth))
+                .map(PhotoSize::getWidth)
+                .orElse(0);
+
+        int height = photos.stream()
+                .max(Comparator.comparingInt(PhotoSize::getHeight))
+                .map(PhotoSize::getHeight)
+                .orElse(0);
+
+        String caption = String.format("file_id: %s\nwidth: %d\nheight: %d", fileId, width, height);
+        sendPhotoMessage(chatId, fileId, caption);
+    }
+
+    private void sendTextMessage(long chatId, String text) {
+        SendMessage message = SendMessage.builder()
+                .chatId(chatId)
+                .text(text)
+                .build();
+        executeMessage(message);
+    }
+
+    private void executeMessage(SendMessage message) {
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            logger.info("We got a problem with message. Message info " + message.getText() + " and " + message.getChatId());
+        }
+    }
+
+    private void executeMessage(SendPhoto message) {
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            logger.info("We got a problem with message. Message info " + message.getCaption() + " and " + message.getChatId());
+        }
+    }
+
+    private void sendPhotoMessage(long chatId, String filePath) {
+        SendPhoto message = SendPhoto.builder()
+                .chatId(chatId)
+                .photo(new InputFile(new File(filePath)))
+                .build();
+        executeMessage(message);
+    }
+
+    private void sendPhotoMessage(long chatId, String fileId, String caption) {
+        SendPhoto message = SendPhoto.builder()
+                .chatId(chatId)
+                .photo(new InputFile(fileId))
+                .caption(caption)
+                .build();
+        executeMessage(message);
+    }
+
+
+}
