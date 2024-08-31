@@ -22,9 +22,10 @@ import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -59,12 +60,22 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
 
     @Override
     public void consume(Update update) {
+        long chat_id = 0;
+        if (update.hasCallbackQuery()) {
+            chat_id = update.getCallbackQuery().getMessage().getChatId();
+            log.info("We get call back query {}", update.getCallbackQuery().getData());
+            handleCallBackQuery(chat_id, update.getCallbackQuery().getData(), update);
+        }
         if (update.hasMessage()) {
-            long chat_id = update.getMessage().getChatId();
+            chat_id = update.getMessage().getChatId();
             log.info("We speak with {} at {}", update.getMessage().getChat().getFirstName(), LocalTime.now());
 
             if (update.getMessage().hasText()) {
-                handleTextMessage(update.getMessage().getText(), chat_id);
+
+                log.info("Our update has message : {} ", update.getMessage());
+
+                handleTextMessage(update.getMessage().getText(), chat_id, update);
+
             } else if (update.getMessage().hasPhoto()) {
                 try {
                     handlePhotoMessage(update.getMessage().getPhoto(), chat_id);
@@ -75,32 +86,28 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
         }
     }
 
-    private void handleTextMessage(String messageText, long chatId) {
+    private void handleCallBackQuery(long chatId, String callBackQuery, Update update) {
+        switch (callBackQuery) {
+            case "upload_photo_msg":
+                log.info("We are in the case {}", callBackQuery);
+                SendMessage message = SendMessage.builder()
+                        .chatId(chatId)
+                        .text("Reply to this message and upload your photo")
+                        .replyMarkup(ForceReplyKeyboard.builder().selective(true).build())
+                        .build();
+                executeMessage(message);
+                break;
+        }
+    }
+
+    private void handleTextMessage(String messageText, long chatId, Update update) {
         switch (messageText) {
             case "/start":
                 sendTextMessage(chatId, "Welcome!");
                 log.info("We answered on command /start");
                 break;
-            case "/pic":
-                sendPhotoMessage(chatId, "src/main/resources/photos/close_face_flixbus.jpg");
-                log.info("We sent a picture on /pic");
-                break;
-            case "/markup":
-                sendMarkup(chatId);
-                log.info("We show keyboard");
-                break;
-            case "/hide":
-                hideMarkup(chatId, "Keyboard hidden");
-                log.info("Keyboard hidden");
-                break;
-            case "Greeting":
-                sendTextMessage(chatId, EmojiParser.parseToUnicode("Hello, how are you ? :smile:"));
-                break;
-            case "Picture":
-                sendPhotoMessage(chatId, "src/main/resources/photos/close_face_flixbus.jpg");
-                break;
-            case "New Food":
-                sendTextMessage(chatId, "Upload your photo ...");
+            case "/new":
+                addNewProduct(chatId, update);
                 break;
             default:
                 sendTextMessage(chatId, "Unknown command: " + messageText);
@@ -108,34 +115,48 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
                 break;
         }
 
-        // Echo the received message
-        sendTextMessage(chatId, messageText);
     }
 
-    private void hideMarkup(long chatId, String text) {
-        SendMessage sendMessage = SendMessage
-                .builder()
-                .chatId(chatId)
-                .text(text)
-                .replyMarkup(new ReplyKeyboardRemove(Boolean.TRUE))
-                .build();
-        executeMessage(sendMessage);
+    private void addNewProduct(long chatId, Update update) {
+        sendTextMessageWithReplyMarkup(chatId, getProductUploadInstructions(update.getMessage().getChat().getFirstName()));
+
     }
 
-    private void sendMarkup(long chatId) {
-        SendMessage message = SendMessage
-                .builder()
-                .text("Here is your keyboard")
+    private void sendTextMessageWithReplyMarkup(long chatId, String productUploadInstructions) {
+        SendMessage message = SendMessage.builder()
                 .chatId(chatId)
+                .text(productUploadInstructions)
+                .replyMarkup(InlineKeyboardMarkup.builder()
+                        .keyboardRow(
+                                new InlineKeyboardRow(InlineKeyboardButton.builder()
+                                        .text(String.format("%s Upload photo", EmojiParser.parseToUnicode(":camera:")))
+                                        .callbackData("upload_photo_msg")
+                                        .build())
+                        )
+                        .build())
                 .build();
-        message.setReplyMarkup(ReplyKeyboardMarkup
-                .builder()
-                .keyboardRow(new KeyboardRow("Greeting", "Picture", "New Food"))
-                .build()
-        );
-
         executeMessage(message);
     }
+
+
+    private String getProductUploadInstructions(String firstName) {
+        return EmojiParser.parseToUnicode(
+                String.format(
+                        """
+                                Hi, %s ! %s
+                                
+                                %s Please upload a photo of your product for us to scan the expiration date.
+                                
+                                %s Focus on the Date: The expiration date should be visible and centered in the photo.
+                                """,
+                        firstName,
+                        EmojiParser.parseToUnicode(":wave:"),
+                        EmojiParser.parseToUnicode(":calendar:"),
+                        EmojiParser.parseToUnicode(":bulb:")
+                )
+        );
+    }
+
 
     private void handlePhotoMessage(List<PhotoSize> photos, long chatId) throws IOException, TelegramApiException {
         String fileId = photos.stream()
