@@ -1,5 +1,11 @@
 package com.self.ZeroWasteFood.services;
 
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.NotFoundException;
+import com.google.zxing.Result;
+import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
+import com.google.zxing.common.HybridBinarizer;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
@@ -29,6 +35,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalTime;
@@ -40,11 +48,14 @@ import java.util.List;
 public class TelegramService implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
     private final UserService userService;
     private final TelegramClient telegramClient;
+    private final BarCodeService barCodeService;
     private final String botToken = "7496319396:AAGx2AE3USjrLNUJXDRB06EtZD8saLqspX0";
 
+
     @Autowired
-    public TelegramService(UserService userService) {
+    public TelegramService(UserService userService, BarCodeService barCodeService) {
         this.userService = userService;
+        this.barCodeService = barCodeService;
         this.telegramClient = new OkHttpTelegramClient(getBotToken());
     }
 
@@ -62,23 +73,25 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
     public void consume(Update update) {
         long chat_id = 0;
         if (update.hasCallbackQuery()) {
+
             chat_id = update.getCallbackQuery().getMessage().getChatId();
-            log.info("We get call back query {}", update.getCallbackQuery().getData());
-            handleCallBackQuery(chat_id, update.getCallbackQuery().getData(), update);
-        }
-        if (update.hasMessage()) {
+            log.info("Receive call back query {}", update.getCallbackQuery().getData());
+            try {
+                handleCallBackQuery(chat_id, update.getCallbackQuery().getData(), update);
+            } catch (TelegramApiException e) {
+                throw new RuntimeException(e);
+            }
+
+        }else if (update.hasMessage()) {
             chat_id = update.getMessage().getChatId();
             log.info("We speak with {} at {}", update.getMessage().getChat().getFirstName(), LocalTime.now());
 
             if (update.getMessage().hasText()) {
-
-                log.info("Our update has message : {} ", update.getMessage());
-
+                log.info("Receive message : {} ", update.getMessage());
                 handleTextMessage(update.getMessage().getText(), chat_id, update);
-
             } else if (update.getMessage().hasPhoto()) {
                 try {
-                    handlePhotoMessage(update.getMessage().getPhoto(), chat_id);
+                    handlePhotoMessage(update.getMessage().getPhoto(), chat_id,update);
                 } catch (IOException | TelegramApiException e) {
                     throw new RuntimeException(e);
                 }
@@ -86,24 +99,55 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
         }
     }
 
-    private void handleCallBackQuery(long chatId, String callBackQuery, Update update) {
+    private void handleCallBackQuery(long chatId, String callBackQuery, Update update) throws TelegramApiException {
         switch (callBackQuery) {
             case "upload_photo_msg":
                 log.info("We are in the case {}", callBackQuery);
-                SendMessage message = SendMessage.builder()
-                        .chatId(chatId)
-                        .text("Reply to this message and upload your photo")
-                        .replyMarkup(ForceReplyKeyboard.builder().selective(true).build())
-                        .build();
-                executeMessage(message);
+                sendTextMessageWithForceReply(chatId,"Upload your photo");
+                log.info("sendTextMessageWithForceReply() was successfully executed");
+                break;
+            case "barcode_msg":
+                log.info("We receive barcode");
+                handlePhotoMessageWithBarcode(chatId,update);
                 break;
         }
     }
 
+    private void handlePhotoMessageWithBarcode(long chatId, Update update) throws TelegramApiException {
+        if(update.getMessage().hasPhoto()){
+            GetFile file = new GetFile(getFileId(update.getMessage().getPhoto()));
+            String filePath = getFilePath(file);
+            File result = getDownloadFileResult(filePath);
+
+            try {
+                BufferedImage bufferedImage = ImageIO.read(result);
+                BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(new BufferedImageLuminanceSource(bufferedImage)));
+                Result decode = new MultiFormatReader().decode(binaryBitmap);
+                sendTextMessage(chatId, decode.getText());
+            } catch (IOException | NotFoundException e) {
+                throw new RuntimeException(e);
+            }
+
+        }else {
+            sendTextMessage(chatId,"We don't have any message");
+        }
+    }
+
+    private void sendTextMessageWithForceReply(long chatId, String replyMessage) {
+        SendMessage message = SendMessage.builder()
+                .chatId(chatId)
+                .text(replyMessage)
+                .replyMarkup(ForceReplyKeyboard.builder().selective(true).build())
+                .build();
+
+        executeMessage(message);
+    }
+
+
     private void handleTextMessage(String messageText, long chatId, Update update) {
         switch (messageText) {
             case "/start":
-                sendTextMessage(chatId, "Welcome!");
+                sendTextMessage(chatId, "Welcome! " + update.getMessage().getChat().getFirstName());
                 log.info("We answered on command /start");
                 break;
             case "/new":
@@ -118,19 +162,28 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
     }
 
     private void addNewProduct(long chatId, Update update) {
-        sendTextMessageWithReplyMarkup(chatId, getProductUploadInstructions(update.getMessage().getChat().getFirstName()));
+        sendTextMessageWithCallBackQuery(chatId,
+                getProductUploadInstructions(update.getMessage().getChat().getFirstName()),
+                "upload_photo_msg",
+                String.format("%s Upload photo", EmojiParser.parseToUnicode(":camera:"))
+                );
 
     }
 
-    private void sendTextMessageWithReplyMarkup(long chatId, String productUploadInstructions) {
+    private void sendTextMessageWithCallBackQuery(long chatId,
+                                                  String text,
+                                                  String callbackData,
+                                                  String inlineKeyboardText
+    ) {
+
         SendMessage message = SendMessage.builder()
                 .chatId(chatId)
-                .text(productUploadInstructions)
+                .text(text)
                 .replyMarkup(InlineKeyboardMarkup.builder()
                         .keyboardRow(
                                 new InlineKeyboardRow(InlineKeyboardButton.builder()
-                                        .text(String.format("%s Upload photo", EmojiParser.parseToUnicode(":camera:")))
-                                        .callbackData("upload_photo_msg")
+                                        .text(inlineKeyboardText)
+                                        .callbackData(callbackData)
                                         .build())
                         )
                         .build())
@@ -138,6 +191,16 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
         executeMessage(message);
     }
 
+    private String getBarcodeUploadInstructions(String firstName){
+        return EmojiParser.parseToUnicode(
+                String.format(
+                        """
+                        %s ,please reply to this message and upload a clear photo of the barcode. Ensure the barcode is well-lit and in focus for the best results.
+                        """ ,
+                        firstName
+                )
+        );
+    }
 
     private String getProductUploadInstructions(String firstName) {
         return EmojiParser.parseToUnicode(
@@ -157,22 +220,33 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
         );
     }
 
-
-    private void handlePhotoMessage(List<PhotoSize> photos, long chatId) throws IOException, TelegramApiException {
-        String fileId = photos.stream()
+    private String getFileId(List<PhotoSize> photos){
+        return photos.stream()
                 .max(Comparator.comparingInt(PhotoSize::getFileSize))
                 .map(PhotoSize::getFileId)
                 .orElse("");
+    }
+
+    private String getFilePath(GetFile file) throws TelegramApiException {
+        return telegramClient.execute(file).getFilePath();
+    }
+
+    private File getDownloadFileResult(String filePath) throws TelegramApiException {
+        return telegramClient.downloadFile(filePath);
+    }
+    private void handlePhotoMessage(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {
+        String fileId = getFileId(photos);
 
 
         GetFile getFile = new GetFile(fileId);
-        String filePath = telegramClient.execute(getFile).getFilePath();
-        File img = telegramClient.downloadFile(filePath);
-        buildPostRequest(img, chatId, fileId);
+        String filePath = getFilePath(getFile);
+        File img = getDownloadFileResult(filePath);
+        sendTextMessage(chatId,"Give me few seconds....");
+        buildPostRequest(img, chatId, fileId,update);
 
     }
 
-    private void buildPostRequest(File img, long chatId, String fileId) throws IOException {
+    private void buildPostRequest(File img, long chatId, String fileId, Update update) throws IOException {
         HttpPost postRequest = new HttpPost("http://127.0.0.1:5000/process-image");
 
         MultipartEntityBuilder entityBuilder = MultipartEntityBuilder.create()
@@ -185,21 +259,29 @@ public class TelegramService implements SpringLongPollingBot, LongPollingSingleT
 
         postRequest.setEntity(entity);
 
-        makeRequest(postRequest, chatId);
+        makeRequest(postRequest, chatId,update);
 
     }
 
-    private void makeRequest(HttpPost postRequest, long chatId) throws IOException {
+    private void makeRequest(HttpPost postRequest, long chatId, Update update) throws IOException {
         try (CloseableHttpClient httpClient = HttpClients.createDefault();
              CloseableHttpResponse response = httpClient.execute(postRequest)) {
 
-            log.info(String.valueOf(response.getStatusLine().getStatusCode()));
+            log.info("Status code : {}",response.getStatusLine().getStatusCode());
 
             HttpEntity responseEntity = response.getEntity();
 
             if (responseEntity != null) {
                 String responseBody = EntityUtils.toString(responseEntity);
-                userService.addProductToUser(chatId, responseBody);
+                log.info("Response body : {}", responseBody);
+                userService.addProductToUser(chatId, responseBody,update);
+                sendTextMessage(chatId,"Done");
+                sendTextMessageWithCallBackQuery(chatId,
+                        getBarcodeUploadInstructions(update.getMessage().getChat().getFirstName()),
+                        "barcode_msg",
+                        EmojiParser.parseToUnicode(":bar_chart: Click on me and upload barcode")
+                        );
+                sendTextMessageWithForceReply(chatId,"Upload photo with barcode");
             }
 
 
