@@ -8,10 +8,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-public class OpenFoodFactsController {
+public class OpenFoodFactsClient {
     private final OpenFoodFactsProxy openFoodFactsProxy;
 
-    public OpenFoodFactsController(OpenFoodFactsProxy openFoodFactsProxy) {
+    public OpenFoodFactsClient(OpenFoodFactsProxy openFoodFactsProxy) {
         this.openFoodFactsProxy = openFoodFactsProxy;
     }
 

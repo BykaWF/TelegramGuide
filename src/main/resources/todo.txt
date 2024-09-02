@@ -1,0 +1,7 @@
+1. PhotoMessageHandler :
+    - Create another service to that will handle barcode (make code readable)
+2. Save product to db(but only needed info
+3. Change order to add product
+4. Find better solution to find expiration date
+5. Delete message prev
+6. Represent page for our user link
