@@ -1,7 +1,6 @@
 package com.self.ZeroWasteFood.controller;
 
 import com.self.ZeroWasteFood.dto.CreateUserRequest;
-import com.self.ZeroWasteFood.model.Product;
 import com.self.ZeroWasteFood.model.User;
 import com.self.ZeroWasteFood.services.UserService;
 import lombok.extern.slf4j.Slf4j;

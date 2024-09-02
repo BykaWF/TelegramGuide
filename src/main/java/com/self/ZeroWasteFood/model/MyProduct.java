@@ -3,22 +3,24 @@ package com.self.ZeroWasteFood.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.List;
+import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString
 @Entity
 @Getter
 @Setter
-@Table(name = "\"user\"")
-public class User {
+@Table(name = "product")
+public class MyProduct {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String firstName;
-    private String secondName;
+    private String productName;
+    private Date experationDate;
 
-    @OneToMany
-    private List<MyProduct> myProductList;
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User userId;
+
 }

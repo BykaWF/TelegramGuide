@@ -28,7 +28,7 @@ public class TelegramController implements SpringLongPollingBot, LongPollingSing
     private final PhotoMessageHandler photoMessageHandler;
     private final CallbackQueryHandler callbackQueryHandler;
     private final String botToken;
-
+//TODO change db properties 
     @Autowired
     public TelegramController(
             TelegramClient telegramClient, TextMessageHandler textMessageHandler,

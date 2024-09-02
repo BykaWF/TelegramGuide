@@ -2,7 +2,9 @@ package com.self.ZeroWasteFood.services;
 
 import com.google.zxing.NotFoundException;
 import com.google.zxing.Result;
-import com.self.ZeroWasteFood.controller.TelegramController;
+import com.self.ZeroWasteFood.controller.OpenFoodFactsController;
+import com.self.ZeroWasteFood.model.Product;
+import com.self.ZeroWasteFood.model.ProductResponse;
 import com.self.ZeroWasteFood.util.BarCodeUtils;
 import com.self.ZeroWasteFood.util.Instructions;
 import lombok.extern.slf4j.Slf4j;
@@ -29,12 +31,14 @@ public class PhotoMessageHandler {
     private final ExpirationDateExtractionService extractionService;
     private final MessageService messageService;
     private final TelegramClient telegramClient;
+    private final OpenFoodFactsController openFoodFactsController;
     @Autowired
-    public PhotoMessageHandler(UserService userService, ExpirationDateExtractionService extractionService, MessageService messageService, TelegramClient telegramClient) {
+    public PhotoMessageHandler(UserService userService, ExpirationDateExtractionService extractionService, MessageService messageService, TelegramClient telegramClient, OpenFoodFactsController openFoodFactsController) {
         this.userService = userService;
         this.extractionService = extractionService;
         this.messageService = messageService;
         this.telegramClient = telegramClient;
+        this.openFoodFactsController = openFoodFactsController;
     }
 
     public void handlePhotoMessage(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {
@@ -54,7 +58,13 @@ public class PhotoMessageHandler {
         } else if (isWaitingForBarCode) {
             try {
                 Result decode = BarCodeUtils.extractBarCodeFromImage(img);
-                messageService.sendTextMessage(chatId, decode.getText());
+                ProductResponse productResponse = openFoodFactsController.fetchProductByCode(decode.getText());
+                Product product = productResponse.getProduct();
+                String productName = product.getProductName();
+
+                String imageFrontSmallUrl = product.getImageFrontSmallUrl();
+                messageService.sendTextMessage(chatId,imageFrontSmallUrl);
+                messageService.sendTextMessage(chatId,productName);
                 isWaitingForBarCode = false;
             } catch (IOException e) {
                 log.error("Can't read image");
