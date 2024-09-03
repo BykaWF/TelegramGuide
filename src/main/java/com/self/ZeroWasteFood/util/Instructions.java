@@ -10,11 +10,16 @@ public class Instructions {
         return EmojiParser.parseToUnicode(
                 String.format(
                         """
-                                %s ,please reply to this message and upload a clear photo of the barcode. 
-                                                        
-                                Ensure the barcode is well-lit and in focus for the best results.
-                                """,
-                        firstName
+                                Hi, %s! %s
+                               \s
+                                %s Please reply to this message and upload a clear photo of the barcode.\s
+                                                       \s
+                                %s Ensure the barcode is well-lit and in focus for the best results.
+                               \s""",
+                        firstName,
+                        EmojiParser.parseToUnicode(":wave:"),
+                        EmojiParser.parseToUnicode(":package:"),
+                        EmojiParser.parseToUnicode(":bulb:")
                 )
         );
     }
@@ -23,14 +28,10 @@ public class Instructions {
         return EmojiParser.parseToUnicode(
                 String.format(
                         """
-                                Hi, %s ! %s
-                                                                
                                 %s Please upload a photo of your product for us to scan the expiration date.
                                                                 
                                 %s Focus on the Date: The expiration date should be visible and centered in the photo.
                                 """,
-                        firstName,
-                        EmojiParser.parseToUnicode(":wave:"),
                         EmojiParser.parseToUnicode(":calendar:"),
                         EmojiParser.parseToUnicode(":bulb:")
                 )

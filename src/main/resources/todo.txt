@@ -5,3 +5,11 @@
 4. Find better solution to find expiration date
 5. Delete message prev
 6. Represent page for our user link
+
+
+Main task:
+
+1. Add to db product with url
+2. Represent one product
+3. Handle multiple img (think about rule)
+4. Interact with camera to detect exp. date and barcode

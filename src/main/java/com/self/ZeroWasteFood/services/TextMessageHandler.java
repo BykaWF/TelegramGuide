@@ -38,8 +38,8 @@ public class TextMessageHandler {
 
     private void handleNewProductCommand(long chatId, Update update) {
         messageService.sendTextMessageWithCallbackQuery(chatId,
-                Instructions.productUploadInstructions(update.getMessage().getChat().getFirstName()),
-                "upload_photo_msg",
+                Instructions.barcodeUploadInstructions(update.getMessage().getChat().getFirstName()),
+                "barcode_msg",
                 String.format("%s Upload photo", EmojiParser.parseToUnicode(":camera:"))
         );
         log.info("Handled /new command for chatId: {}", chatId);

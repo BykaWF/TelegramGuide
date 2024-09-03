@@ -21,7 +21,7 @@ public class ExpirationDateExtractionService {
 
     public String buildPostRequest(File img, long chatId, String fileId, Update update) throws IOException {
         HttpPost postRequest = new HttpPost("http://127.0.0.1:5000/process-image");
-
+        log.info("We get img and building postRequest");
         MultipartEntityBuilder entityBuilder = MultipartEntityBuilder.create()
                 .addBinaryBody("image",
                         img,

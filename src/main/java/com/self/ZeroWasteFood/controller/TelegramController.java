@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -28,7 +27,7 @@ public class TelegramController implements SpringLongPollingBot, LongPollingSing
     private final PhotoMessageHandler photoMessageHandler;
     private final CallbackQueryHandler callbackQueryHandler;
     private final String botToken;
-//TODO change db properties 
+
     @Autowired
     public TelegramController(
             TelegramClient telegramClient, TextMessageHandler textMessageHandler,

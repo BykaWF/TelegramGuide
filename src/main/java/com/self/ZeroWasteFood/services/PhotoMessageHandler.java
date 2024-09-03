@@ -48,23 +48,14 @@ public class PhotoMessageHandler {
 
         messageService.sendTextMessage(chatId, "Give me few seconds....");
 
-        if (isWaitingForExpDate) {
-            String responseBody = extractionService.buildPostRequest(img, chatId, fileId, update);
-            userService.addProductToUser(chatId, responseBody, update);
-            messageService.sendTextMessage(chatId, "Done");
-            isWaitingForExpDate = false;
-            isWaitingForBarCode = true;
-            messageService.sendTextMessageWithForceReply(chatId, Instructions.barcodeUploadInstructions(update.getMessage().getChat().getFirstName()));
-        } else if (isWaitingForBarCode) {
+        if (isWaitingForBarCode) {
             try {
                 Result decode = BarCodeUtils.extractBarCodeFromImage(img);
                 ProductResponse productResponse = openFoodFactsClient.fetchProductByCode(decode.getText());
-                Product product = productResponse.getProduct();
-                String productName = product.getProductName();
-                String imageFrontSmallUrl = product.getImageFrontSmallUrl();
-                messageService.sendTextMessage(chatId,imageFrontSmallUrl);
-                messageService.sendTextMessage(chatId,productName);
+                log.info("Product name {}", productResponse.getProduct().getProductName());
                 isWaitingForBarCode = false;
+                isWaitingForExpDate = true;
+                messageService.sendTextMessageWithForceReply(chatId, Instructions.productUploadInstructions(update.getMessage().getChat().getFirstName()));
             } catch (IOException e) {
                 log.error("Can't read image");
                 messageService.sendTextMessage(chatId, "Try upload photo again!");
@@ -72,6 +63,12 @@ public class PhotoMessageHandler {
                 log.error("Can't find barcode on image");
                 messageService.sendTextMessage(chatId, "Can't read barcode from image. Make sure it's in the middle of image");
             }
+        } else if (isWaitingForExpDate) {
+
+            String responseBody = extractionService.buildPostRequest(img, chatId, fileId, update);
+            userService.addProductToUser(chatId, responseBody, update);
+            messageService.sendTextMessage(chatId, "Done");
+            isWaitingForExpDate = false;
         }
 
 
