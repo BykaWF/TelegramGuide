@@ -3,6 +3,7 @@ package com.self.ZeroWasteFood.services;
 import com.self.ZeroWasteFood.util.InMemoryUserStorage;
 import com.self.ZeroWasteFood.util.Instructions;
 import com.vdurmont.emoji.EmojiParser;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -13,6 +14,7 @@ public class TextMessageHandler {
     private final UserService userService;
     private final MessageService messageService;
     private final InMemoryUserStorage userStorage;
+
     public TextMessageHandler(UserService userService, MessageService messageService, InMemoryUserStorage userStorage) {
         this.userService = userService;
         this.messageService = messageService;
@@ -34,15 +36,26 @@ public class TextMessageHandler {
     }
 
     private void handleStartCommand(long chatId, Update update) {
-        messageService.sendTextMessageWithCallbackQuery(
-                chatId,
-                Instructions.registerNewUserInstruction(update.getMessage().getChat().getFirstName()),
-                "add_me_msg",
-                EmojiParser.parseToUnicode(":sparkles: Add Me")
-        );
+        if(!hasUserInDb(update.getMessage().getChat().getId())){
 
-        userStorage.storeUser(chatId,update.getMessage().getFrom());
+            messageService.sendTextMessageWithCallbackQuery(
+                    chatId,
+                    Instructions.registerNewUserInstruction(update.getMessage().getChat().getFirstName()),
+                    "add_me_msg",
+                    EmojiParser.parseToUnicode(":sparkles: Add Me")
+            );
+            userStorage.saveUser(chatId, update.getMessage().getFrom());
+        }else {
+
+            messageService.sendTextMessage(chatId,Instructions.infoInstructions(update.getMessage().getChat().getFirstName()));
+
+        }
+
         log.info("Handled /start command for chatId: {}", chatId);
+    }
+
+    private boolean hasUserInDb(@NonNull Long id) {
+        return userService.findUserById(id).isPresent();
     }
 
     private void handleNewProductCommand(long chatId, Update update) {

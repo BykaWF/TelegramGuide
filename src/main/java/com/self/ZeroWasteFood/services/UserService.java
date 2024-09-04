@@ -8,6 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -37,6 +38,10 @@ public class UserService {
     @Transactional
     public List<TelegramUser> getUserList(){
         return userRepository.findAllWithProducts();
+    }
+
+    public Optional<TelegramUser> findUserById(Long id){
+        return userRepository.findUserById(id);
     }
 
     public void addProductToUser(long chatId, String responseBody, Update update) {

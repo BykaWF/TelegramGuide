@@ -1,6 +1,5 @@
 package com.self.ZeroWasteFood.services;
 
-import com.self.ZeroWasteFood.model.TelegramUser;
 import com.self.ZeroWasteFood.util.InMemoryUserStorage;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;

@@ -10,6 +10,7 @@ import java.util.Date;
 @Entity
 @Getter
 @Setter
+@ToString
 @Table(name = "product")
 public class TelegramProduct {
 
@@ -17,6 +18,8 @@ public class TelegramProduct {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String productName;
+    private String imgUrl;
+    private String nutritionGrades;
     private Date experationDate;
 
     @ManyToOne

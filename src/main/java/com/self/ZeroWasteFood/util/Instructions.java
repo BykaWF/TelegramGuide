@@ -51,4 +51,22 @@ public class Instructions {
         ));
     }
 
+    public static String infoInstructions(String firstName){
+        return EmojiParser.parseToUnicode(String.format(
+                """
+               Hey %s! :smiley:
+               \s
+               To explore available commands, just click on the "Menu" button to the left of the chat:
+               \s
+                  📌 View available commands
+                  📌 Access your profile settings
+                  📌 Check out new features
+               \s
+               Feel free to aks anything!
+               \s
+               """,
+                firstName
+        ));
+    }
+
 }

@@ -3,7 +3,7 @@ package com.self.ZeroWasteFood.services;
 import com.google.zxing.NotFoundException;
 import com.google.zxing.Result;
 import com.self.ZeroWasteFood.controller.OpenFoodFactsClient;
-import com.self.ZeroWasteFood.model.Product;
+import com.self.ZeroWasteFood.exception.NoUserByIdException;
 import com.self.ZeroWasteFood.model.ProductResponse;
 import com.self.ZeroWasteFood.util.BarCodeUtils;
 import com.self.ZeroWasteFood.util.Instructions;
@@ -32,13 +32,16 @@ public class PhotoMessageHandler {
     private final MessageService messageService;
     private final TelegramClient telegramClient;
     private final OpenFoodFactsClient openFoodFactsClient;
+    private final ProductService productService;
+
     @Autowired
-    public PhotoMessageHandler(UserService userService, ExpirationDateExtractionService extractionService, MessageService messageService, TelegramClient telegramClient, OpenFoodFactsClient openFoodFactsClient) {
+    public PhotoMessageHandler(UserService userService, ExpirationDateExtractionService extractionService, MessageService messageService, TelegramClient telegramClient, OpenFoodFactsClient openFoodFactsClient, ProductService productService) {
         this.userService = userService;
         this.extractionService = extractionService;
         this.messageService = messageService;
         this.telegramClient = telegramClient;
         this.openFoodFactsClient = openFoodFactsClient;
+        this.productService = productService;
     }
 
     public void handlePhotoMessage(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {
@@ -53,6 +56,7 @@ public class PhotoMessageHandler {
                 Result decode = BarCodeUtils.extractBarCodeFromImage(img);
                 ProductResponse productResponse = openFoodFactsClient.fetchProductByCode(decode.getText());
                 log.info("Product name {}", productResponse.getProduct().getProductName());
+                productService.addProductToUserById(update.getMessage().getChat().getId(), productResponse);
                 isWaitingForBarCode = false;
                 isWaitingForExpDate = true;
                 messageService.sendTextMessageWithForceReply(chatId, Instructions.productUploadInstructions(update.getMessage().getChat().getFirstName()));
@@ -62,6 +66,9 @@ public class PhotoMessageHandler {
             } catch (NotFoundException e) {
                 log.error("Can't find barcode on image");
                 messageService.sendTextMessage(chatId, "Can't read barcode from image. Make sure it's in the middle of image");
+            }catch (NoUserByIdException e){
+                log.error("Can't find user by id");
+                messageService.sendTextMessage(chatId,"Some problem occur during request. Try again!");
             }
         } else if (isWaitingForExpDate) {
 

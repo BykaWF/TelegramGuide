@@ -1,6 +1,5 @@
 package com.self.ZeroWasteFood.util;
 
-import com.self.ZeroWasteFood.model.TelegramUser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -19,7 +18,7 @@ public class InMemoryUserStorage {
         this.storage = storage;
     }
 
-    public void storeUser(Long key,User user){
+    public void saveUser(Long key, User user){
         log.info("We store in memory user {}", user);
         storage.put(key,user);
     }
