@@ -1,7 +1,7 @@
 package com.self.ZeroWasteFood.controller;
 
 import com.self.ZeroWasteFood.dto.CreateUserRequest;
-import com.self.ZeroWasteFood.model.User;
+import com.self.ZeroWasteFood.model.TelegramUser;
 import com.self.ZeroWasteFood.services.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +20,9 @@ public class UserController {
 
     @GetMapping("/users")
     public ResponseEntity<?> getUsers(){
-        List<User> userList = userService.getUserList();
-        log.info("We get userList : {}" ,userList);
-        return ResponseEntity.status(200).body(userList);
+        List<TelegramUser> telegramUserList = userService.getUserList();
+        log.info("We get userList : {}" , telegramUserList);
+        return ResponseEntity.status(200).body(telegramUserList);
     }
 
     @PostMapping("/user")

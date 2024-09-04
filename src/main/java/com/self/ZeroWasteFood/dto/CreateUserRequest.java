@@ -1,6 +1,6 @@
 package com.self.ZeroWasteFood.dto;
 
-import com.self.ZeroWasteFood.model.User;
+import com.self.ZeroWasteFood.model.TelegramUser;
 import lombok.*;
 
 @Builder
@@ -12,10 +12,10 @@ public class CreateUserRequest {
     private String firstName;
     private String secondName;
 
-    public User toUser(){
-        return User.builder()
+    public TelegramUser toUser(){
+        return TelegramUser.builder()
                 .firstName(firstName)
-                .secondName(secondName)
+                .lastName(secondName)
                 .build();
     }
 }

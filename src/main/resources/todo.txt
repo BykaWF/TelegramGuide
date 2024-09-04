@@ -4,12 +4,16 @@
 3. Change order to add product
 4. Find better solution to find expiration date
 5. Delete message prev
-6. Represent page for our user link
+6. Represent page for our telegramUser link
 
 
 Main task:
 
-1. Add to db product with url
-2. Represent one product
+1. Add to db product with url(img)
+2. Represent one product on html page
 3. Handle multiple img (think about rule)
 4. Interact with camera to detect exp. date and barcode
+
+
+TRY:
+Store in linked list messages id and then delete ?

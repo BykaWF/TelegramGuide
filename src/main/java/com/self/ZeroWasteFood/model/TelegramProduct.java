@@ -11,7 +11,7 @@ import java.util.Date;
 @Getter
 @Setter
 @Table(name = "product")
-public class MyProduct {
+public class TelegramProduct {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +20,7 @@ public class MyProduct {
     private Date experationDate;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User userId;
+    @JoinColumn(name = "telegram_user_id", nullable = false)
+    private TelegramUser telegramUser;
 
 }

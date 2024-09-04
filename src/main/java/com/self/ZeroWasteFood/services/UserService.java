@@ -1,9 +1,11 @@
 package com.self.ZeroWasteFood.services;
 
-import com.self.ZeroWasteFood.model.User;
+import com.self.ZeroWasteFood.model.TelegramUser;
 import com.self.ZeroWasteFood.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 
 import java.util.List;
 
@@ -15,12 +17,26 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public void saveUser(User user){
-        userRepository.save(user);
+    public void saveUser(TelegramUser telegramUser){
+        userRepository.save(telegramUser);
     }
 
-    public List<User> getUserList(){
-        return userRepository.findAll();
+    public void addUserAsTelegramUser(User user){
+
+        TelegramUser telegramUser = new TelegramUser();
+        telegramUser.setId(user.getId());
+        telegramUser.setUsername(user.getUserName());
+        telegramUser.setFirstName(user.getFirstName());
+        telegramUser.setLastName(user.getLastName());
+        telegramUser.setLanguageCode(user.getLanguageCode());
+        telegramUser.setBot(user.getIsBot());
+        userRepository.save(telegramUser);
+    }
+
+
+    @Transactional
+    public List<TelegramUser> getUserList(){
+        return userRepository.findAllWithProducts();
     }
 
     public void addProductToUser(long chatId, String responseBody, Update update) {

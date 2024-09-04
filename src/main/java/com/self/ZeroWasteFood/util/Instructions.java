@@ -38,4 +38,17 @@ public class Instructions {
         );
     }
 
+    public static String registerNewUserInstruction(String firstName){
+        return EmojiParser.parseToUnicode(String.format(
+                """
+               Hey %s! :blush:
+               \s
+               To help you us to manage your products better, we need to save you in our system.\s
+               \s
+               :sparkle: Just tap 'Add Me' below, and you're all set! 
+               """,
+                firstName
+        ));
+    }
+
 }
