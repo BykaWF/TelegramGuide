@@ -18,6 +18,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.Comparator;
 import java.util.List;
 
@@ -27,16 +28,14 @@ public class PhotoMessageHandler {
 
     private boolean isWaitingForBarCode = false;
     private boolean isWaitingForExpDate = false;
-    private final UserService userService;
-    private final ExpirationDateExtractionService extractionService;
+    private final ProcessImageService extractionService;
     private final MessageService messageService;
     private final TelegramClient telegramClient;
     private final OpenFoodFactsClient openFoodFactsClient;
     private final ProductService productService;
 
     @Autowired
-    public PhotoMessageHandler(UserService userService, ExpirationDateExtractionService extractionService, MessageService messageService, TelegramClient telegramClient, OpenFoodFactsClient openFoodFactsClient, ProductService productService) {
-        this.userService = userService;
+    public PhotoMessageHandler(ProcessImageService extractionService, MessageService messageService, TelegramClient telegramClient, OpenFoodFactsClient openFoodFactsClient, ProductService productService) {
         this.extractionService = extractionService;
         this.messageService = messageService;
         this.telegramClient = telegramClient;
@@ -46,17 +45,32 @@ public class PhotoMessageHandler {
 
     public void handlePhotoMessage(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {
         String fileId = getFileId(photos);
+        File img = getFile(fileId);
+        messageService.sendTextMessage(chatId, "Give me few seconds....");
+        extractionService.getProcessImageResponseAndAddProductToUser(
+                img,
+                update);
+        messageService.sendTextMessage(chatId, "Done");
+
+    }
+    @Deprecated
+    public void handlePhotoMessageOld(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {
+        String fileId = getFileId(photos);
 
         File img = getFile(fileId);
-
         messageService.sendTextMessage(chatId, "Give me few seconds....");
+        extractionService.getProcessImageResponseAndAddProductToUser(
+                img,
+                update);
+        messageService.sendTextMessage(chatId, "Done");
+
 
         if (isWaitingForBarCode) {
             try {
                 Result decode = BarCodeUtils.extractBarCodeFromImage(img);
                 ProductResponse productResponse = openFoodFactsClient.fetchProductByCode(decode.getText());
                 log.info("Product name {}", productResponse.getProduct().getProductName());
-                productService.addProductToUserById(update.getMessage().getChat().getId(), productResponse);
+                productService.addProductToUserById(update.getMessage().getChat().getId(), productResponse, "");
                 isWaitingForBarCode = false;
                 isWaitingForExpDate = true;
                 messageService.sendTextMessageWithForceReply(chatId, Instructions.productUploadInstructions(update.getMessage().getChat().getFirstName()));
@@ -66,14 +80,16 @@ public class PhotoMessageHandler {
             } catch (NotFoundException e) {
                 log.error("Can't find barcode on image");
                 messageService.sendTextMessage(chatId, "Can't read barcode from image. Make sure it's in the middle of image");
-            }catch (NoUserByIdException e){
+            } catch (NoUserByIdException e) {
                 log.error("Can't find user by id");
-                messageService.sendTextMessage(chatId,"Some problem occur during request. Try again!");
+                messageService.sendTextMessage(chatId, "Some problem occur during request. Try again!");
+            } catch (ParseException e) {
+                log.error(e.getMessage());
             }
         } else if (isWaitingForExpDate) {
 
-            String responseBody = extractionService.buildPostRequest(img, chatId, fileId, update);
-            userService.addProductToUser(chatId, responseBody, update);
+            String responseBody = extractionService.getProcessImageResponseAndAddProductToUser(img, chatId, fileId, update);
+            productService.addExpirationDateToExistingProductById(update.getMessage().getChat().getId(), responseBody);
             messageService.sendTextMessage(chatId, "Done");
             isWaitingForExpDate = false;
         }

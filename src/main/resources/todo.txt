@@ -9,11 +9,12 @@
 
 Main task:
 
-1. Add to db product with url(img)
-2. Represent one product on html page
-3. Handle multiple img (think about rule)
-4. Interact with camera to detect exp. date and barcode
+V. Add to db product with url(img)
+V. Represent one product on html page
+3. Handle Stickers
 
 
 TRY:
 Store in linked list messages id and then delete ?
+3. Handle multiple img (think about rule)
+4. Interact with camera to detect exp. date and barcode

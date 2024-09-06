@@ -29,9 +29,9 @@ public class Instructions {
                 String.format(
                         """
                                 %s Please upload a photo of your product for us to scan the expiration date.
-                                                                
+
                                 %s Focus on the Date: The expiration date should be visible and centered in the photo.
-                                """,
+                               \s""",
                         EmojiParser.parseToUnicode(":calendar:"),
                         EmojiParser.parseToUnicode(":bulb:")
                 )

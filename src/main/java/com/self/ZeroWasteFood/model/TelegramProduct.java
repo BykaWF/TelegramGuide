@@ -20,7 +20,7 @@ public class TelegramProduct {
     private String productName;
     private String imgUrl;
     private String nutritionGrades;
-    private Date experationDate;
+    private Date expirationDate;
 
     @ManyToOne
     @JoinColumn(name = "telegram_user_id", nullable = false)

@@ -18,7 +18,7 @@ public class OpenFoodFactsClient {
     @GetMapping("/product/{code}.json")
     public ProductResponse fetchProductByCode(@PathVariable("code") String code) {
         ProductResponse productResponse = openFoodFactsProxy.fetchProductByCode(code);
-        log.info("Product: {} ", productResponse);
+        log.info("Product: {} ", productResponse.getProduct().getProductName());
         return productResponse;
     }
 }
