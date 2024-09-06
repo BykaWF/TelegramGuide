@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="eng">
+<head>
+    <title>Product List</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+    <table>
+        <tr>
+            <th>Img</th>
+            <th>Product Name</th>
+            <th>Expiration Date</th>
+            <th>Nutrition Score</th>
+        </tr>
+        <tr th:each="prod:${productList}">
+            <td><img th:src="${prod.imgUrl}" width="200" height="200"></td>
+            <td th:text="${prod.productName}">Product Name</td>
+            <td th:text="${prod.expirationDate}"></td>
+            <td th:text="${prod.nutritionGrades}"></td>
+        </tr>
+    </table>
+</body>
+
+</html>
