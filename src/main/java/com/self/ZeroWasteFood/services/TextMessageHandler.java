@@ -14,11 +14,13 @@ public class TextMessageHandler {
     private final UserService userService;
     private final MessageService messageService;
     private final InMemoryUserStorage userStorage;
+    private final ProductScanService productScanService;
 
-    public TextMessageHandler(UserService userService, MessageService messageService, InMemoryUserStorage userStorage) {
+    public TextMessageHandler(UserService userService, MessageService messageService, InMemoryUserStorage userStorage, ProductScanService productScanService) {
         this.userService = userService;
         this.messageService = messageService;
         this.userStorage = userStorage;
+        this.productScanService = productScanService;
     }
 
     public void handleTextMessage(String messageText, long chatId, Update update) {
@@ -26,8 +28,8 @@ public class TextMessageHandler {
             case "/start":
                 handleStartCommand(chatId, update);
                 break;
-            case "/new":
-                handleNewProductCommand(chatId, update);
+            case "/full_scan":
+                handleFullScanProductCommand(chatId, update);
                 break;
             default:
                 handleUnknownCommand(chatId, messageText);
@@ -35,8 +37,9 @@ public class TextMessageHandler {
         }
     }
 
+
     private void handleStartCommand(long chatId, Update update) {
-        if(!hasUserInDb(update.getMessage().getChat().getId())){
+        if (!hasUserInDb(update.getMessage().getChat().getId())) {
 
             messageService.sendTextMessageWithCallbackQuery(
                     chatId,
@@ -45,9 +48,9 @@ public class TextMessageHandler {
                     EmojiParser.parseToUnicode(":sparkles: Add Me")
             );
             userStorage.saveUser(chatId, update.getMessage().getFrom());
-        }else {
+        } else {
 
-            messageService.sendTextMessage(chatId,Instructions.infoInstructions(update.getMessage().getChat().getFirstName()));
+            messageService.sendTextMessage(chatId, Instructions.infoInstructions(update.getMessage().getChat().getFirstName()));
 
         }
 
@@ -58,13 +61,23 @@ public class TextMessageHandler {
         return userService.findUserById(id).isPresent();
     }
 
-    private void handleNewProductCommand(long chatId, Update update) {
-        messageService.sendTextMessageWithCallbackQuery(chatId,
-                Instructions.barcodeUploadInstructions(update.getMessage().getChat().getFirstName()),
-                "barcode_msg",
-                String.format("%s Upload photo", EmojiParser.parseToUnicode(":camera:"))
+
+    private void handleFullScanProductCommand(long chatId, Update update) {
+        productScanService.createProductScanWithUser(
+                userService
+                        .findUserById
+                                (update.getMessage()
+                                        .getFrom()
+                                        .getId()
+                                )
+                        .orElseThrow()
         );
-        log.info("Handled /new command for chatId: {}", chatId);
+        messageService.sendTextMessageWithForceReply(
+                chatId,
+                "Upload photo"
+        );
+
+        log.info("Handled /full_scan command for chatId: {}", chatId);
     }
 
     private void handleUnknownCommand(long chatId, String messageText) {

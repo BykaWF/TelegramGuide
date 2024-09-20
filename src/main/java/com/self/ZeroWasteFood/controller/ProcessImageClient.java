@@ -3,6 +3,7 @@ package com.self.ZeroWasteFood.controller;
 import com.self.ZeroWasteFood.dto.ProcessImageResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -16,10 +17,9 @@ public class ProcessImageClient implements ProcessImageProxy{
     }
 
 
-
     @Override
-    public ProcessImageResponse fetchProcessImageResponse(Map<String, ?> form ) {
-        ProcessImageResponse response = processImageProxy.fetchProcessImageResponse(form);
+    public ProcessImageResponse fetchProcessImageResponse(MultipartFile image, String type) {
+        ProcessImageResponse response = processImageProxy.fetchProcessImageResponse(image,type);
         log.info("We got response from process image service {}", response);
         return response;
     }

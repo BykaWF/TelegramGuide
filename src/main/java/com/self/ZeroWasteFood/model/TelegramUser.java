@@ -30,6 +30,8 @@ public class TelegramUser {
 
     @OneToMany(mappedBy = "telegramUser", fetch = FetchType.LAZY)
     private List<TelegramProduct> telegramProductList;
+    @OneToMany(mappedBy = "telegramUser", fetch = FetchType.LAZY)
+    private List<ProductScan> productScans;
 
 
 }

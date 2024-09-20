@@ -1,8 +1,6 @@
 package com.self.ZeroWasteFood.controller;
 
-import com.self.ZeroWasteFood.services.CallbackQueryHandler;
-import com.self.ZeroWasteFood.services.PhotoMessageHandler;
-import com.self.ZeroWasteFood.services.TextMessageHandler;
+import com.self.ZeroWasteFood.services.*;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,19 +25,23 @@ public class TelegramController implements SpringLongPollingBot, LongPollingSing
     private final PhotoMessageHandler photoMessageHandler;
     private final CallbackQueryHandler callbackQueryHandler;
     private final String botToken;
+    private final UserService userService;
+    private final MessageService messageService;
 
     @Autowired
     public TelegramController(
             TelegramClient telegramClient, TextMessageHandler textMessageHandler,
             PhotoMessageHandler photoMessageHandler,
             CallbackQueryHandler callbackQueryHandler,
-            @Value("${telegram.bot.token}") String botToken
+            @Value("${telegram.bot.token}") String botToken, UserService userService, MessageService messageService
     ) {
         this.telegramClient = telegramClient;
         this.textMessageHandler = textMessageHandler;
         this.photoMessageHandler = photoMessageHandler;
         this.callbackQueryHandler = callbackQueryHandler;
         this.botToken = botToken;
+        this.userService = userService;
+        this.messageService = messageService;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.self.ZeroWasteFood.controller;
 
+import com.self.ZeroWasteFood.exception.NoSuchProductException;
 import com.self.ZeroWasteFood.model.ProductResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +17,7 @@ public class OpenFoodFactsClient {
     }
 
     @GetMapping("/product/{code}.json")
-    public ProductResponse fetchProductByCode(@PathVariable("code") String code) {
+    public ProductResponse fetchProductByCode(@PathVariable("code") String code) throws NoSuchProductException {
         ProductResponse productResponse = openFoodFactsProxy.fetchProductByCode(code);
         log.info("Product: {} ", productResponse.getProduct().getProductName());
         return productResponse;
