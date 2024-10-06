@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendSticker;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ForceReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -60,6 +61,23 @@ public class MessageService {
                 .text(text)
                 .build();
         executeMessage(message);
+    }
+
+    public void sendSticker(long chatId, String fileId){
+        SendSticker sticker = SendSticker.builder()
+                .chatId(chatId)
+                .sticker(new InputFile(fileId))
+                .build();
+
+        executeMessage(sticker);
+    }
+
+    private void executeMessage(SendSticker message){
+        try{
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            log.error("Failed to send sticker: {} to chat {}", message.getSticker(), message.getChatId(), e);
+        }
     }
 
     private void executeMessage(SendMessage message) {

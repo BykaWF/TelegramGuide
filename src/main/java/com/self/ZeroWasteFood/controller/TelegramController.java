@@ -66,8 +66,8 @@ public class TelegramController implements SpringLongPollingBot, LongPollingSing
                 log.info("We speak with {} at {}", update.getMessage().getChat().getFirstName(), LocalTime.now());
                 if (update.getMessage().hasText()) {
                     log.info("Receive message: {}", update.getMessage().getText());
-                    if(update.getMessage().getQuote() != null){ // TODO WE NEED REPLY TO MESSAGE <<<<<<=========
-                        textMessageHandler.handleMessageWithQuote(update.getMessage().getQuote(), chatId, update);
+                    if(update.getMessage().getReplyToMessage() != null){
+                        textMessageHandler.handleReplyMessage(update.getMessage().getReplyToMessage(), chatId, update);
                     }else{
 
                         textMessageHandler.handleTextMessage(update.getMessage().getText(), chatId, update);

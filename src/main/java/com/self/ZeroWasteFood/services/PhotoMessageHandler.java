@@ -46,12 +46,9 @@ public class PhotoMessageHandler {
     public void handlePhotoMessage(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {
         String fileId = getFileId(photos);
         File img = getFile(fileId);
-        messageService.sendTextMessage(chatId, "Give me few seconds....");
         extractionService.getProcessImageResponseAndAddProductToUser(
                 img,
                 update);
-        messageService.sendTextMessage(chatId, "Done");
-
     }
     @Deprecated
     public void handlePhotoMessageOld(List<PhotoSize> photos, long chatId, Update update) throws IOException, TelegramApiException {

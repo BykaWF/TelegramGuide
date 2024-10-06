@@ -3,14 +3,13 @@ package com.self.ZeroWasteFood.services;
 import com.self.ZeroWasteFood.controller.OpenFoodFactsClient;
 import com.self.ZeroWasteFood.model.ProductResponse;
 import com.self.ZeroWasteFood.model.ProductScan;
+import com.self.ZeroWasteFood.util.FoodStickerPack;
 import com.self.ZeroWasteFood.util.InMemoryUserStorage;
 import com.self.ZeroWasteFood.util.Instructions;
-import com.self.ZeroWasteFood.util.ScanStatus;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.objects.TextQuote;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 
@@ -110,19 +109,18 @@ public class TextMessageHandler {
         log.info("Received unknown command: {} for chatId: {}", messageText, chatId);
     }
 
-    public void handleMessageWithQuote(TextQuote quote, long chatId, Update update) {
-        if(quote.getIsManual()){
-            messageService.sendTextMessage(chatId, "Please do not reply to messages");
-        }else{
-            switch (quote.getText()){
-                case "Enter your data: ":
-                    handleManualInput(chatId,update);
-                    break;
-                default:
-                    handleUnknownQuote(chatId,update);
-                    break;
-            }
+    public void handleReplyMessage(Message replyMessage, long chatId, Update update) {
+
+        String text = replyMessage.getText();
+        switch (text) {
+            case "Enter your data:":
+                handleManualInput(chatId, update);
+                break;
+            default:
+                handleUnknownQuote(chatId, update);
+                break;
         }
+
     }
 
     private void handleUnknownQuote(long chatId, Update update) {
@@ -149,7 +147,12 @@ public class TextMessageHandler {
         productScan.setStatus(COMPLETE);
         productScanService.save(productScan);
         ProductResponse productResponse = openFoodFactsClient.fetchProductByCode(productScan.getBarcode());
-        productService.addProductToUserById(id,productScan,productResponse);
+        productService.addProductToUserById(id, productScan, productResponse);
         productScanService.removeCompleteProductScan(productScan);
+        notifyUserAboutSuccess(chatId); //TODO use observer pattern
+    }
+
+    private void notifyUserAboutSuccess(long chatId){
+        messageService.sendSticker(chatId, FoodStickerPack.RASPBERRY_ANGEL.getFileId());
     }
 }
