@@ -1,5 +1,6 @@
 package com.self.ZeroWasteFood.services;
 
+import com.self.ZeroWasteFood.model.ProductScan;
 import com.self.ZeroWasteFood.util.InMemoryUserStorage;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
@@ -14,11 +15,14 @@ public class CallbackQueryHandler {
     private final MessageService messageService;
     private final UserService userService;
     private final InMemoryUserStorage inMemoryUserStorage;
-    public CallbackQueryHandler(PhotoMessageHandler photoMessageHandler, MessageService messageService, UserService userService, InMemoryUserStorage inMemoryUserStorage) {
+    private final ProductScanService productScanService;
+
+    public CallbackQueryHandler(PhotoMessageHandler photoMessageHandler, MessageService messageService, UserService userService, InMemoryUserStorage inMemoryUserStorage, ProductScanService productScanService) {
         this.photoMessageHandler = photoMessageHandler;
         this.messageService = messageService;
         this.userService = userService;
         this.inMemoryUserStorage = inMemoryUserStorage;
+        this.productScanService = productScanService;
     }
 
     public void handleCallbackQuery(String callbackData, long chatId, Update update) {
@@ -30,7 +34,10 @@ public class CallbackQueryHandler {
                 handleBarcode(chatId, update);
                 break;
             case "add_me_msg":
-                handleAddUser(chatId,update);
+                handleAddUser(chatId, update);
+                break;
+            case "try_add_manually":
+                handleManualInput(chatId, update);
                 break;
             default:
                 handleUnknownCallback(chatId, callbackData);
@@ -38,15 +45,20 @@ public class CallbackQueryHandler {
         }
     }
 
+    private void handleManualInput(long chatId, Update update) {
+        messageService.sendTextMessageWithForceReply(chatId, "Enter your data: ");
+
+    }
+
     private void handleAddUser(long chatId, Update update) {
         messageService.sendTextMessage(chatId, EmojiParser.parseToUnicode(":sparkles:"));
 
-        User currentUser =  inMemoryUserStorage.getUserByKey(chatId);
+        User currentUser = inMemoryUserStorage.getUserByKey(chatId);
         userService.addUserAsTelegramUser(currentUser);
         log.info("We get user from update {}", currentUser);
         log.info("We saved him into database");
 
-        messageService.sendTextMessage(chatId,EmojiParser.parseToUnicode(":thumbsup: We added you!"));
+        messageService.sendTextMessage(chatId, EmojiParser.parseToUnicode(":thumbsup: We added you!"));
     }
 
     private void handleUploadPhoto(long chatId, Update update) {

@@ -43,8 +43,22 @@ public class ProductScanService {
         productScanRepository.save(productScan);
     }
 
+    public ProductScan getProductByUserId(TelegramUser telegramUser){
+        Optional<ProductScan> byUserId = productScanRepository.findByUserId(telegramUser);
+        return byUserId.orElseThrow();
+    }
+
     public boolean removeCompleteProductScan(ProductScan productScan) {
         if (productScan.getStatus().equals(COMPLETE)) {
+            productScanRepository.delete(productScan);
+            return true;
+        }else {
+            return false;
+        }
+    }
+
+    public boolean removeEmptyProductScan(ProductScan productScan) {
+        if(productScan.getStatus().equals(WAITING_FOR_BARCODE_AND_EXPIRATION_DATE)){
             productScanRepository.delete(productScan);
             return true;
         }else {

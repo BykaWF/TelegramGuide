@@ -130,31 +130,40 @@ public class ProcessImageService {
 
 
         productScanService.save(productScan);
-        responseToUserBasedOnStatus(productScan, productResponse,update);
+        responseToUserBasedOnStatus(productScan, productResponse, update);
     }
 
     private void responseToUserBasedOnStatus(ProductScan productScan, ProductResponse productResponse, Update update) {
         Long chatId = update.getMessage().getChatId();
         ScanStatus status = productScan.getStatus();
         Long userId = update.getMessage().getFrom().getId();
-        String[] callBackData = {"try_add_manually", "try_again"};
+        String[] callBackData = {"try_add_manually"};
         String[] inlineButtonText = {
-                EmojiParser.parseToUnicode(":arrows_counterclockwise:Try Again"),
                 EmojiParser.parseToUnicode(":raised_hand: Manually")
         };
 
         switch (status) {
-            case WAITING_FOR_BARCODE_AND_EXPIRATION_DATE ->
-                    messageService.sendTextMessage(chatId, "We couldn't detect both the barcode and expiration date. You can try again or enter them manually.");
-
-            case WAITING_FOR_BARCODE ->
-                    messageService.sendTextMessage(chatId, "Barcode detection failed. Please upload another photo or enter the barcode manually.");
-
-            case WAITING_FOR_EXPIRATION_DATE -> {
-                productService.addProductToUserById(userId, productScan, productResponse); // by link?
+            case WAITING_FOR_BARCODE_AND_EXPIRATION_DATE -> {
+                if (!productScanService.removeEmptyProductScan(productScan)) {
+                    log.error("We can't delete empty product scan {}", productScan);
+                    messageService.sendTextMessage(chatId, "Sorry, internal error occurred on server. Try later!");
+                } else {
+                    messageService.sendTextMessageWithForceReply(chatId, "We couldn't detect both the barcode and expiration date. You can try again ");
+                }
+            }
+            case WAITING_FOR_BARCODE ->{
+                productScanService.save(productScan);
                 messageService.sendTextMessageWithCallbackQuery(
                         chatId,
-                        "Expiration date detection failed. The product was added to your list, but you can retry or enter the date manually.",
+                        "Barcode detection failed. Please enter the barcode manually.",
+                        callBackData,
+                        inlineButtonText);
+            }
+            case WAITING_FOR_EXPIRATION_DATE -> {
+                productScanService.save(productScan);
+                messageService.sendTextMessageWithCallbackQuery(
+                        chatId,
+                        "Expiration date detection failed. Please enter expiration date manually.",
                         callBackData,
                         inlineButtonText
                 );
@@ -169,14 +178,11 @@ public class ProcessImageService {
                 }
             }
 
-            default ->
-                    messageService.sendTextMessage(chatId, "An unexpected error occurred. Please try again.");
+            default -> messageService.sendTextMessage(chatId, "An unexpected error occurred. Please try again.");
         }
 
-// Save the product scan at the end, outside of switch
-        productScanService.save(productScan);
-    }
 
+   }
 
 
     private void updateProductScanStatus(ProductScan productScan) {

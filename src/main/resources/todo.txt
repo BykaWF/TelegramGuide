@@ -24,3 +24,13 @@ Store in linked list messages id and then delete ?
 2. Train model to detect dates.
     Check research page and train
 3. Create frontend part
+--------------------------------------------------------------------------------
+
+Delete or not delete ?
+
+like we create productScan entry with id, if Waiting for both, we delete entry, then again
+if
+
+
+
+WOWOWOWOWOWOW _>>>>>> Add speech - to - text ( like expiration date: 00.00.0000, name: schnitzel)

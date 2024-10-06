@@ -12,7 +12,13 @@ import java.util.Optional;
 @Repository
 public interface ProductScanRepository extends JpaRepository<ProductScan,Long> {
 
-    @Query("SELECT ps FROM ProductScan ps WHERE ps.telegramUser = :userId AND ps.status = 'WAITING_FOR_BARCODE_AND_EXPIRATION_DATE'")
+    @Query(
+            "SELECT ps FROM ProductScan ps WHERE ps.telegramUser = :userId AND ps.status = 'WAITING_FOR_BARCODE_AND_EXPIRATION_DATE'"
+    )
     Optional<ProductScan> findByUserIdWithStatusWaitingBoth(@Param("userId") TelegramUser telegramUser);
 
+    @Query(
+            "SELECT ps FROM ProductScan ps WHERE ps.telegramUser = :userId"
+    )
+    Optional<ProductScan> findByUserId(@Param("userId") TelegramUser telegramUser);
 }
