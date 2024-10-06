@@ -7,6 +7,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
 
 @Slf4j
 @Service
@@ -39,23 +40,32 @@ public class TextMessageHandler {
 
 
     private void handleStartCommand(long chatId, Update update) {
-        if (!hasUserInDb(update.getMessage().getChat().getId())) {
+        Message message = update.getMessage();
 
-            messageService.sendTextMessageWithCallbackQuery(
-                    chatId,
-                    Instructions.registerNewUserInstruction(update.getMessage().getChat().getFirstName()),
-                    "add_me_msg",
-                    EmojiParser.parseToUnicode(":sparkles: Add Me")
-            );
-            userStorage.saveUser(chatId, update.getMessage().getFrom());
+        if (message != null && message.getChat() != null) {
+            String[] callBackData = {"add_me_msg"};
+            String[] inlineKeyboardButton = {EmojiParser.parseToUnicode(":sparkles: Add Me")};
+
+            if (!hasUserInDb(message.getChat().getId())) {
+                messageService.sendTextMessageWithCallbackQuery(
+                        chatId,
+                        Instructions.registerNewUserInstruction(message.getChat().getFirstName()),
+                        callBackData,
+                        inlineKeyboardButton
+                );
+
+                userStorage.saveUser(chatId, message.getFrom());
+                log.info("New user saved: chatId={}, username={}", chatId, message.getFrom().getUserName());
+            } else {
+                messageService.sendTextMessage(chatId, Instructions.infoInstructions(message.getChat().getFirstName()));
+            }
+
+            log.info("Handled /start command for chatId: {}", chatId);
         } else {
-
-            messageService.sendTextMessage(chatId, Instructions.infoInstructions(update.getMessage().getChat().getFirstName()));
-
+            log.error("Failed to handle /start command. Invalid message or chat data.");
         }
-
-        log.info("Handled /start command for chatId: {}", chatId);
     }
+
 
     private boolean hasUserInDb(@NonNull Long id) {
         return userService.findUserById(id).isPresent();

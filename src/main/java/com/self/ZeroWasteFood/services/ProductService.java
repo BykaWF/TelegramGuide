@@ -2,10 +2,7 @@ package com.self.ZeroWasteFood.services;
 
 import com.self.ZeroWasteFood.exception.NoProductByUserIdException;
 import com.self.ZeroWasteFood.exception.NoUserByIdException;
-import com.self.ZeroWasteFood.model.Product;
-import com.self.ZeroWasteFood.model.ProductResponse;
-import com.self.ZeroWasteFood.model.TelegramProduct;
-import com.self.ZeroWasteFood.model.TelegramUser;
+import com.self.ZeroWasteFood.model.*;
 import com.self.ZeroWasteFood.repository.ProductRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +27,35 @@ public class ProductService {
         this.productRepository = productRepository;
         this.userService = userService;
     }
+
+    @Transactional
+    public void addProductToUserById(Long id, ProductScan productScan, ProductResponse productResponse){
+
+        Optional<TelegramUser> userById = userService.findUserById(id);
+        if(userById.isPresent()){
+            TelegramUser telegramUser = userById.get();
+            TelegramProduct product = getTelegramProduct(productScan,productResponse, telegramUser);
+            telegramUser.getTelegramProductList().add(product);
+            productRepository.save(product);
+            userService.saveUser(telegramUser);
+        }else {
+            log.error("no such user, check is he in db");
+        }
+    }
+
+    private TelegramProduct getTelegramProduct(ProductScan productScan,ProductResponse productResponse, TelegramUser telegramUser) {
+        Product openFoodproduct = productResponse.getProduct();
+        TelegramProduct product = new TelegramProduct();
+
+        product.setProductName(openFoodproduct.getProductName());
+        product.setTelegramUser(telegramUser);
+        product.setNutritionGrades(openFoodproduct.getNutritionGrades());
+        product.setImgUrl(openFoodproduct.getImageUrl());
+        product.setExpirationDate(productScan.getExpirationDate());
+
+        return product;
+    }
+
 
     @Transactional
     public void addProductToUserById(Long id, ProductResponse productResponse, String expirationDate) throws NoUserByIdException, ParseException {

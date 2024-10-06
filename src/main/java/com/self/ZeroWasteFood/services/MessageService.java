@@ -13,6 +13,9 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Slf4j
 @Service
 public class MessageService {
@@ -24,7 +27,7 @@ public class MessageService {
         this.telegramClient = telegramClient;
     }
 
-    public void sendTextMessageWithCallbackQuery(long chatId, String text, String callbackData, String inlineKeyboardText) {
+    public void sendTextMessageWithCallbackQuery(long chatId, String text, String[] callbackData, String[] inlineKeyboardText) {
         SendMessage message = SendMessage.builder()
                 .chatId(chatId)
                 .text(text)
@@ -75,13 +78,23 @@ public class MessageService {
         }
     }
 
-    private InlineKeyboardMarkup buildInlineKeyboardMarkup(String buttonText, String callbackData) {
-        InlineKeyboardButton button = InlineKeyboardButton.builder()
-                .text(buttonText)
-                .callbackData(callbackData)
-                .build();
+    private InlineKeyboardMarkup buildInlineKeyboardMarkup(String[] buttonTexts, String[] callbackData) {
+        if (buttonTexts == null || callbackData == null || buttonTexts.length != callbackData.length) {
+            throw new IllegalArgumentException("Button texts and callback data must be non-null and have the same length");
+        }
+
+        List<InlineKeyboardButton> keyboardButtonList = new ArrayList<>();
+
+        for (int idx = 0; idx < buttonTexts.length; idx++) {
+            keyboardButtonList.add(InlineKeyboardButton.builder()
+                    .text(buttonTexts[idx])
+                    .callbackData(callbackData[idx])
+                    .build());
+        }
+
         InlineKeyboardRow row = new InlineKeyboardRow();
-        row.add(button);
+        row.addAll(keyboardButtonList);
+
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(row)
                 .build();

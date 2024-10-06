@@ -18,3 +18,9 @@ TRY:
 Store in linked list messages id and then delete ?
 3. Handle multiple img (think about rule)
 4. Interact with camera to detect exp. date and barcode
+---------------------------------------------------------------------------
+1. ProcessImageServe -> handleResponse()
+    Here we need to work with different workflow, and we need gracefully solve it
+2. Train model to detect dates.
+    Check research page and train
+3. Create frontend part

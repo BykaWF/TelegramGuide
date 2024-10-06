@@ -3,13 +3,12 @@ package com.self.ZeroWasteFood.services;
 import com.self.ZeroWasteFood.controller.OpenFoodFactsClient;
 import com.self.ZeroWasteFood.controller.ProcessImageClient;
 import com.self.ZeroWasteFood.dto.ProcessImageResponse;
-import com.self.ZeroWasteFood.exception.NoBarcodeDetectedException;
-import com.self.ZeroWasteFood.exception.NoExpirationDateDetectedException;
-import com.self.ZeroWasteFood.exception.NoSuchProductException;
 import com.self.ZeroWasteFood.model.ProductResponse;
 import com.self.ZeroWasteFood.model.ProductScan;
 import com.self.ZeroWasteFood.util.FileMultipart;
-import feign.FeignException;
+import com.self.ZeroWasteFood.util.ResponseHandler;
+import com.self.ZeroWasteFood.util.ScanStatus;
+import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -26,10 +25,10 @@ import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static com.self.ZeroWasteFood.util.ProcessImageRequestType.FULL_SCAN;
+import static com.self.ZeroWasteFood.util.ScanStatus.*;
 
 @Slf4j
 @Service
@@ -39,13 +38,15 @@ public class ProcessImageService {
     private final OpenFoodFactsClient openFoodFactsClient;
     private final ProductScanService productScanService;
     private final MessageService messageService;
+    private final UserService userService;
 
-    public ProcessImageService(ProcessImageClient processImageClient, ProductService productService, OpenFoodFactsClient openFoodFactsClient, ProductScanService productScanService, MessageService messageService) {
+    public ProcessImageService(ProcessImageClient processImageClient, ProductService productService, OpenFoodFactsClient openFoodFactsClient, ProductScanService productScanService, MessageService messageService, UserService userService) {
         this.processImageClient = processImageClient;
         this.productService = productService;
         this.openFoodFactsClient = openFoodFactsClient;
         this.productScanService = productScanService;
         this.messageService = messageService;
+        this.userService = userService;
     }
 
 
@@ -92,63 +93,130 @@ public class ProcessImageService {
      * @param update represent updates from chat
      */
     public void getProcessImageResponseAndAddProductToUser(File img, Update update) {
-        //TODO fetch the product by waiting for and so on
-        String barcode = "";
-        String expirationDate = "";
-        try {
-            ProcessImageResponse response = processImageClient.fetchProcessImageResponse(new FileMultipart(img.toPath()), String.valueOf(FULL_SCAN));
-            ProductScan productScan = getProductScan(update);
+        // Fetch the image response
+        ProcessImageResponse response = processImageClient.fetchProcessImageResponse(new FileMultipart(img.toPath()), String.valueOf(FULL_SCAN));
+        ResponseHandler responseHandler = handleResponse(response);
+        ProductScan productScan = getProductScan(update);
+        ProductResponse productResponse = new ProductResponse();
+        log.info("We have fetched response {}", response);
 
-            log.info("We have fetched response {}", response);
-
-            barcode = getBarcodeFrom(response);
-            expirationDate = getExpirationDateFrom(response);
+        if (!responseHandler.getBarcode().isBlank()) {
+            String barcode = responseHandler.getBarcode();
             productScan.setBarcode(barcode);
-            productScan.setExpirationDate(new SimpleDateFormat("dd.MM.yy").parse(expirationDate));
+            productResponse = openFoodFactsClient.fetchProductByCode(barcode);
 
-            ProductResponse productResponse = openFoodFactsClient.fetchProductByCode(barcode);
-            log.info("Product name {}", productResponse.getProduct().getProductName());
-
-        } catch (NoSuchElementException e) {
-            log.error("We don't have product scan by user id that waiting for expiration date and barcode");
-            log.error(e.getMessage());
-        } catch (FeignException.BadRequest badRequest) {
-            log.error("Bad Request: {}", badRequest.getMessage());
-            messageService.sendTextMessage(update.getMessage().getChatId(), "Occurred server error. Try again later!");
-        } catch (NoSuchProductException productException) {
-            log.error("We can't fetch product from Open Food API with barcode {}", barcode);
-            messageService.sendTextMessage(update.getMessage().getChatId(), "We unable find in our base your product. Sorry :(");
-        } catch (NoBarcodeDetectedException e) {
-            // TODO manually or try again
-        } catch (NoExpirationDateDetectedException e) {
-            // TODO manually or try again
-            e.getMessage();
-        } catch (ParseException e) {
-            log.error("Unable to parse expiration date result {}", expirationDate);
-            //TODO we can't understand this expiration date, manually or try again.
+        } else {
+            log.error("We can't detect barcode");
+            productScan.setStatus(WAITING_FOR_BARCODE);
         }
 
-
-    }
-
-    private String getExpirationDateFrom(ProcessImageResponse response) {
-        String result = (String) response.getExpirationDate();
-        if (result != null) {
-            return result;
+        String expirationDateStr = responseHandler.getExpirationDate();
+        if (!expirationDateStr.isBlank()) {
+            try {
+                productScan.setExpirationDate(new SimpleDateFormat("dd.MM.yy").parse(expirationDateStr));
+            } catch (ParseException e) {
+                log.error("Unable to parse expiration date '{}': {}", expirationDateStr, e.getMessage(), e);
+                //TODO we can't parse and aks to type manually
+                messageService.sendTextMessage(update.getMessage().getChatId(), "We can't parse your date. Type manually");
+            }
         } else {
             log.error("We can't detect expiration date on image");
-            throw new NoExpirationDateDetectedException("Expiration date want's detected on image");
+            updateProductScanStatus(productScan);
+        }
+
+        if (productScan.getStatus() == null) {
+            productScan.setStatus(COMPLETE);
+        }
+
+
+        productScanService.save(productScan);
+        responseToUserBasedOnStatus(productScan, productResponse,update);
+    }
+
+    private void responseToUserBasedOnStatus(ProductScan productScan, ProductResponse productResponse, Update update) {
+        Long chatId = update.getMessage().getChatId();
+        ScanStatus status = productScan.getStatus();
+        Long userId = update.getMessage().getFrom().getId();
+        String[] callBackData = {"try_add_manually", "try_again"};
+        String[] inlineButtonText = {
+                EmojiParser.parseToUnicode(":arrows_counterclockwise:Try Again"),
+                EmojiParser.parseToUnicode(":raised_hand: Manually")
+        };
+
+        switch (status) {
+            case WAITING_FOR_BARCODE_AND_EXPIRATION_DATE ->
+                    messageService.sendTextMessage(chatId, "We couldn't detect both the barcode and expiration date. You can try again or enter them manually.");
+
+            case WAITING_FOR_BARCODE ->
+                    messageService.sendTextMessage(chatId, "Barcode detection failed. Please upload another photo or enter the barcode manually.");
+
+            case WAITING_FOR_EXPIRATION_DATE -> {
+                productService.addProductToUserById(userId, productScan, productResponse); // by link?
+                messageService.sendTextMessageWithCallbackQuery(
+                        chatId,
+                        "Expiration date detection failed. The product was added to your list, but you can retry or enter the date manually.",
+                        callBackData,
+                        inlineButtonText
+                );
+            }
+
+            case COMPLETE -> {
+                productService.addProductToUserById(userId, productScan, productResponse);
+                if (productScanService.removeCompleteProductScan(productScan)) {
+                    messageService.sendTextMessage(chatId, "Product added successfully! Barcode: " + productScan.getBarcode() + ", Expiration Date: " + productScan.getExpirationDate());
+                } else {
+                    messageService.sendTextMessage(chatId, "Product added successfully, but couldn't remove the scan due to an incomplete status.");
+                }
+            }
+
+            default ->
+                    messageService.sendTextMessage(chatId, "An unexpected error occurred. Please try again.");
+        }
+
+// Save the product scan at the end, outside of switch
+        productScanService.save(productScan);
+    }
+
+
+
+    private void updateProductScanStatus(ProductScan productScan) {
+        if (productScan.getStatus().equals(WAITING_FOR_BARCODE)) {
+            productScan.setStatus(WAITING_FOR_BARCODE_AND_EXPIRATION_DATE);
+        } else {
+            productScan.setStatus(WAITING_FOR_EXPIRATION_DATE);
         }
     }
 
-    private String getBarcodeFrom(ProcessImageResponse response) {
+
+    private ResponseHandler handleResponse(ProcessImageResponse response) {
+        Optional<String> optionalBarcode;
+        Optional<String> optionalExpirationDate;
+
+        optionalBarcode = getBarcodeFrom(response);
+        optionalExpirationDate = getExpirationDateFrom(response);
+
+        return ResponseHandler.builder()
+                .expirationDate(optionalExpirationDate.orElse(""))
+                .barcode(optionalBarcode.orElse(""))
+                .build();
+    }
+
+    private Optional<String> getExpirationDateFrom(ProcessImageResponse response) {
+        String result = (String) response.getExpirationDate();
+        if (result != null) {
+            return Optional.of(result);
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<String> getBarcodeFrom(ProcessImageResponse response) {
         String result = "";
         if (response.getBarcode() != null) {
             result = response.getBarcode()[0].getData();
-            return result;
+            return Optional.of(result);
         } else {
-            log.error("Barcode is null");
-            throw new NoBarcodeDetectedException("Barcode wasn't detected on image");
+            return Optional.empty();
         }
 
     }
@@ -156,7 +224,7 @@ public class ProcessImageService {
     private ProductScan getProductScan(Update update) {
         Long userId = update.getMessage().getFrom().getId();
         Optional<ProductScan> productScanOptional = productScanService.
-                findProductScanByUserIdWithStatusWaitingBoth(update.getMessage().getFrom().getId());
+                findProductScanByUserIdWithStatusWaitingBoth(userService.findUserById(update.getMessage().getFrom().getId()).orElseThrow());
 
         return productScanOptional.orElseThrow();
     }
